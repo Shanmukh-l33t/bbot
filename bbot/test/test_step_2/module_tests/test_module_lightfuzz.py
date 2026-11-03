@@ -413,14 +413,18 @@ class Test_Lightfuzz_ssti_multiply(ModuleTestBase):
     }
 
     def request_handler(self, request):
+        ssti_block = ""
         qs = str(request.query_string.decode())
         if "data=" in qs:
-            value = qs.split("=")[1]
-            if "&" in value:
-                value = value.split("&")[0]
-            nums = value.split("%20")[1].split("*")
-            ints = [int(s) for s in nums]
-            ssti_block = f"<html><div class=data>{str(ints[0] * ints[1])}</div</html>"
+            try:
+                value = qs.split("=")[1]
+                if "&" in value:
+                    value = value.split("&")[0]
+                nums = value.split("%20")[1].split("*")
+                ints = [int(s) for s in nums]
+                ssti_block = f"<html><div class=data>{str(ints[0] * ints[1])}</div</html>"
+            except (IndexError, ValueError):
+                pass  # probe payloads that do not parse as int*int get the base page
         return Response(ssti_block, status=200)
 
     async def setup_after_prep(self, module_test):
