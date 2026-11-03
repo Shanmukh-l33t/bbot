@@ -11,7 +11,7 @@ understand exactly what changed and why (and whether it's okay) before changing 
 
 from ..bbot_fixtures import *  # noqa: F401
 
-from pytest_httpserver import HTTPServer
+from bbot.test.conftest import FastShutdownHTTPServer
 from bbot.test.worker import (
     HTTPSERVER_HOSTPORT,
     HTTPSERVER_PORT,
@@ -34,17 +34,18 @@ def bbot_other_httpservers():
         ("127.0.0.33", HTTPSERVER_PORT_ALT),
     ]
 
-    servers = [HTTPServer(host=host, port=port, threaded=True) for host, port in server_hosts]
+    servers = [FastShutdownHTTPServer(host=host, port=port, threaded=True) for host, port in server_hosts]
     for server in servers:
         server.start()
 
     yield servers
 
     for server in servers:
-        server.clear()
         if server.is_running():
             server.stop()
+        # check recorded expectations before the trailing clear() wipes them (#3506)
         server.check_assertions()
+        server.check_handler_errors()
         server.clear()
 
 

@@ -49,9 +49,12 @@ class FastShutdownHTTPServer(HTTPServer):
         empty-body hash from that check, so an empty miss is the only constant that
         does not make every miss URL collide as duplicate content.
 
-        The accumulated assertion is dropped with it. bbot's httpserver fixtures
-        call clear() before check_assertions(), so no-handler assertions were
-        discarded unread and never failed a test.
+        The accumulated assertion is dropped with it. pytest_httpserver records
+        one for every miss, but a miss is the expected case in brute-force-heavy
+        tests (thousands per run), so it must stay silent even though the
+        fixtures now check_assertions() at teardown. Genuine expectation
+        failures (a handler raising AssertionError, handler errors) surface
+        there instead.
         """
         return Response("", self.no_handler_status_code)
 
@@ -163,10 +166,11 @@ def bbot_httpserver():
 
     yield server
 
-    server.clear()
     stop_server(server)  # Ensure the server is fully stopped
 
+    # check recorded expectations before the trailing clear() wipes them (#3506)
     server.check_assertions()
+    server.check_handler_errors()
     server.clear()
 
 
@@ -182,10 +186,11 @@ def bbot_httpserver_ssl():
 
     yield server
 
-    server.clear()
     stop_server(server)  # Ensure the server is fully stopped
 
+    # check recorded expectations before the trailing clear() wipes them (#3506)
     server.check_assertions()
+    server.check_handler_errors()
     server.clear()
 
 
@@ -289,10 +294,11 @@ def bbot_httpserver_allinterfaces():
 
     yield server
 
-    server.clear()
     if server.is_running():
         server.stop()
+    # check recorded expectations before the trailing clear() wipes them (#3506)
     server.check_assertions()
+    server.check_handler_errors()
     server.clear()
 
 
